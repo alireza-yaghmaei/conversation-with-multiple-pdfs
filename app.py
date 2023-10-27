@@ -9,6 +9,7 @@ from langchain.memory import ConversationBufferMemory
 from langchain.chains import ConversationalRetrievalChain
 from htmlTemplates import css, bot_template, user_template
 from langchain.llms import HuggingFaceHub
+from langchain import PromptTemplate
 
 # returns a text containing all PDFs.
 def get_pdf_text(pdf_docs):
@@ -48,11 +49,31 @@ def get_conversation_chain(vectorstore):
         memory_key='chat_history',          # chain and prompt will expect an input named chat_history
         return_messages=True
     )
-    
+    prompt_template = """
+    try using given CONTEXT to answer the question. if the question is not relatable to context then use your own knowledge.
+  
+  CONTEXT:
+  {context}
+  
+  QUESTION: 
+  {question}
+
+  CHAT HISTORY: 
+  {chat_history}
+  
+  ANSWER:
+  """
+  
+    prompt = PromptTemplate(
+    template=prompt_template,
+    input_variables=["context", "question", "chat_history"]
+    )
+  
     conversation_chain = ConversationalRetrievalChain.from_llm(
         llm=llm,
         retriever=vectorstore.as_retriever(),
-        memory=memory
+        memory=memory,
+        combine_docs_chain_kwargs={"prompt": prompt}
     )
     return conversation_chain
 
@@ -86,8 +107,6 @@ def main():
     if user_question:
         handle_userinput(user_question)
         
-    if "conversation" not in st.session_state:
-        st.session_state.conversation = None
 
     with st.sidebar:
         st.subheader("Your documents")
